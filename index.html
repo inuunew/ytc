@@ -42,19 +42,8 @@
     .player-container { width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; }
     .player-container iframe { width: 100%; height: 100%; border: none; }
     
-    .video-details { margin-top: 16px; }
-    .video-details h1 { font-size: 18px; margin: 0 0 10px 0; }
-    .channel-bar { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 12px; }
-    .channel-name { font-weight: bold; font-size: 15px; }
-    
-    .desc-box { background: var(--card-bg); padding: 12px; border-radius: 8px; font-size: 13px; white-space: pre-line; color: #ddd; max-height: 200px; overflow-y: auto; margin-bottom: 20px; }
-
-    /* Downloads Section */
-    .download-section { background: var(--card-bg); padding: 16px; border-radius: 8px; margin-top: 16px; }
-    .download-section h3 { margin-top: 0; font-size: 15px; }
-    .download-list { display: flex; flex-wrap: wrap; gap: 8px; max-height: 150px; overflow-y: auto; }
-    .dl-btn { background: #2b2b2b; color: #3ea6ff; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 12px; border: 1px solid var(--border); }
-    .dl-btn:hover { background: #333; }
+    .video-details { margin-top: 16px; margin-bottom: 24px; }
+    .video-details h1 { font-size: 18px; margin: 0; }
 
     /* Related Sidebar */
     .related-title { font-size: 16px; margin: 0 0 12px 0; }
@@ -87,21 +76,8 @@
         <div class="player-container">
           <iframe id="videoPlayer" src="" allowfullscreen allow="autoplay"></iframe>
         </div>
-        
         <div class="video-details">
-          <h1 id="vTitle">Judul Video</h1>
-          <div class="channel-bar">
-            <div>
-              <div class="channel-name" id="vAuthor">Nama Channel</div>
-              <div style="font-size: 12px; color: var(--muted);" id="vViews">0 views</div>
-            </div>
-          </div>
-          <div class="desc-box" id="vDesc">Deskripsi video...</div>
-        </div>
-
-        <div class="download-section">
-          <h3>Link Stream / Download Format Direct</h3>
-          <div class="download-list" id="downloadList">Memuat format download...</div>
+          <h1 id="vTitle">Memutar Video...</h1>
         </div>
       </div>
 
@@ -143,7 +119,8 @@
             if (item.type !== 'video' || !item.id) return;
             const card = document.createElement('div');
             card.className = 'video-card';
-            card.onclick = () => playVideo(item.id);
+            // Passing ID dan Title ke fungsi playVideo
+            card.onclick = () => playVideo(item.id, item.title);
             card.innerHTML = `
               <div class="thumb-box"><img src="${item.thumbnail}" loading="lazy"></div>
               <div class="card-info">
@@ -160,34 +137,20 @@
       }
     }
 
-    // Dipanggil saat Kartu Video Diklik
-    async function playVideo(videoId) {
+    // Putar Video dan Tampilkan Halaman Tonton
+    function playVideo(videoId, title) {
       searchView.style.display = 'none';
       watchView.style.display = 'grid';
       window.scrollTo(0, 0);
 
-      // Reset data
-      document.getElementById('vTitle').innerText = "Memuat...";
-      document.getElementById('vAuthor').innerText = "";
-      document.getElementById('vViews').innerText = "";
-      document.getElementById('vDesc').innerText = "";
-      document.getElementById('downloadList').innerHTML = "Memuat format...";
+      // Set judul secara instan dari data klik
+      document.getElementById('vTitle').innerText = title || "Sedang Memutar...";
       document.getElementById('relatedList').innerHTML = "";
 
       // 1. Putar Video via Player Embed
       document.getElementById('videoPlayer').src = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1`;
 
-      // 2. Ambil Informasi Detail Video (action=info)
-      fetch(`/api/yt?action=info&id=${videoId}`)
-        .then(r => r.json())
-        .then(info => {
-          document.getElementById('vTitle').innerText = info.title || "Tanpa Judul";
-          document.getElementById('vAuthor').innerText = info.author || "Channel";
-          document.getElementById('vViews').innerText = `${Number(info.viewCount || 0).toLocaleString()} views • ${info.publishDate || ''}`;
-          document.getElementById('vDesc').innerText = info.description || "Tidak ada deskripsi.";
-        }).catch(e => console.error(e));
-
-      // 3. Ambil Video Terkait (action=related)
+      // 2. Ambil Video Terkait (action=related)
       fetch(`/api/yt?action=related&id=${videoId}`)
         .then(r => r.json())
         .then(data => {
@@ -197,7 +160,8 @@
               if (item.type !== 'video' || !item.id) return;
               const rel = document.createElement('div');
               rel.className = 'related-item';
-              rel.onclick = () => playVideo(item.id);
+              // Passing ID dan Title dari list terkait
+              rel.onclick = () => playVideo(item.id, item.title);
               rel.innerHTML = `
                 <img class="related-thumb" src="${item.thumbnail}" loading="lazy">
                 <div class="related-info">
@@ -209,29 +173,7 @@
               relatedContainer.appendChild(rel);
             });
           }
-        }).catch(e => console.error(e));
-
-      // 4. Ambil Link Download / Stream Mentah (action=download)
-      fetch(`/api/yt?action=download&id=${videoId}`)
-        .then(r => r.json())
-        .then(data => {
-          const dlContainer = document.getElementById('downloadList');
-          dlContainer.innerHTML = '';
-          if (data.formats && data.formats.length > 0) {
-            data.formats.forEach(f => {
-              const a = document.createElement('a');
-              a.className = 'dl-btn';
-              a.href = f.url;
-              a.target = '_blank';
-              a.innerText = `${f.label || 'Format'} (${f.mimeType.split(';')[0]})`;
-              dlContainer.appendChild(a);
-            });
-          } else {
-            dlContainer.innerText = "Format download tidak tersedia.";
-          }
-        }).catch(e => {
-          document.getElementById('downloadList').innerText = "Gagal mengambil link download.";
-        });
+        }).catch(e => console.error("Gagal memuat video terkait:", e));
     }
 
     // Submit pencarian
