@@ -107,24 +107,35 @@ async function search(query) {
 }
 
 async function infoVideo(videoId) {
-  const json = await youtubei("player", {
-    context: { client: mweb() },
-    videoId,
-    contentCheckOk: true,
-    racyCheckOk: true,
+  // Gunakan endpoint 'next' menggantikan 'player' agar tidak diblokir Vercel
+  const json = await youtubei("next", { 
+    context: { client: mweb() }, 
+    videoId 
   });
+
+  // Ambil metadata dasar dari response
   const vd = json.videoDetails || {};
-  const mf = (json.microformat || {}).playerMicroformatRenderer || {};
+  
+  // Ambil judul tambahan jika vd.title kosong
+  let title = vd.title;
+  if (!title) {
+    const slimInfo = findAll(json, "slimVideoInformationRenderer");
+    if (slimInfo.length > 0) {
+      title = text(slimInfo[0].title?.runs);
+    }
+  }
+
   return {
     type: "video",
-    id: vd.videoId,
-    title: vd.title,
-    description: vd.shortDescription,
-    author: vd.author,
-    viewCount: vd.viewCount,
-    publishDate: mf.publishDate,
+    id: videoId,
+    title: title || "Judul tidak tersedia",
+    description: vd.shortDescription || "Deskripsi tidak tersedia.",
+    author: vd.author || vd.ownerChannelName || "Channel",
+    viewCount: vd.viewCount || "0",
+    publishDate: "",
   };
 }
+
 
 async function related(videoId) {
   const json = await youtubei("next", { context: { client: mweb() }, videoId });
