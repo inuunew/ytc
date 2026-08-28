@@ -1,0 +1,122 @@
+<!DOCTYPE strict>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YouTube Clone</title>
+  <style>
+    :root { --bg: #0f0f0f; --header: #0f0f0f; --text: #ffffff; --text-muted: #aaaaaa; --border: #303030; --hover: #272727; }
+    body { margin: 0; padding: 0; font-family: 'Roboto', Arial, sans-serif; background-color: var(--bg); color: var(--text); }
+    
+    /* Header & Search */
+    header { display: flex; align-items: center; justify-content: space-between; padding: 10px 24px; position: sticky; top: 0; background: var(--header); z-index: 100; border-bottom: 1px solid var(--border); }
+    .logo { font-size: 20px; font-weight: bold; letter-spacing: -1px; display: flex; align-items: center; gap: 5px; cursor: pointer;}
+    .logo span { background: red; color: white; padding: 2px 8px; border-radius: 8px; font-size: 14px;}
+    
+    .search-box { display: flex; flex: 1; max-width: 600px; margin: 0 20px; }
+    .search-box input { flex: 1; padding: 10px 16px; font-size: 16px; background: #121212; border: 1px solid var(--border); border-radius: 24px 0 0 24px; color: var(--text); outline: none; }
+    .search-box input:focus { border-color: #1c62b9; }
+    .search-box button { padding: 10px 20px; background: #222222; border: 1px solid var(--border); border-left: none; border-radius: 0 24px 24px 0; color: white; cursor: pointer; transition: 0.2s; }
+    .search-box button:hover { background: var(--hover); }
+
+    /* Video Grid */
+    main { padding: 24px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px 16px; }
+    .video-card { display: flex; flex-direction: column; cursor: pointer; text-decoration: none; color: inherit; }
+    .thumbnail { width: 100%; aspect-ratio: 16/9; border-radius: 12px; object-fit: cover; background: #222; transition: transform 0.2s; }
+    .video-card:hover .thumbnail { border-radius: 0; }
+    
+    .info { display: flex; margin-top: 12px; gap: 12px; }
+    .avatar { width: 36px; height: 36px; border-radius: 50%; background: #333; flex-shrink: 0; }
+    .meta { display: flex; flex-direction: column; }
+    .title { font-size: 16px; font-weight: 500; margin: 0 0 4px 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4; }
+    .channel, .views { font-size: 14px; color: var(--text-muted); margin: 0; line-height: 1.4;}
+    
+    /* Loading state */
+    #loader { text-align: center; padding: 50px; display: none; color: var(--text-muted); }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="logo" onclick="loadVideos('trending')">YT <span>Clone</span></div>
+    <form class="search-box" id="searchForm">
+      <input type="text" id="searchInput" placeholder="Telusuri..." required>
+      <button type="submit">Cari</button>
+    </form>
+    <div style="width: 40px;"></div> <!-- Spacer -->
+  </header>
+
+  <main>
+    <h2 id="searchTitle" style="margin-top:0; font-size: 18px; border-bottom: 1px solid #333; padding-bottom:10px; display:none;"></h2>
+    <div id="loader">Sedang memuat video...</div>
+    <div class="grid" id="videoGrid"></div>
+  </main>
+
+  <script>
+    const grid = document.getElementById('videoGrid');
+    const loader = document.getElementById('loader');
+    const searchForm = document.getElementById('searchForm');
+    const searchInput = document.getElementById('searchInput');
+    const searchTitle = document.getElementById('searchTitle');
+
+    // Fungsi fetch data ke file /api/yt
+    async function loadVideos(query) {
+      grid.innerHTML = '';
+      loader.style.display = 'block';
+      
+      if(query !== 'trending') {
+          searchTitle.style.display = 'block';
+          searchTitle.innerText = `Hasil pencarian untuk: "${query}"`;
+      } else {
+          searchTitle.style.display = 'none';
+      }
+
+      try {
+        const res = await fetch(`/api/yt?action=search&q=${encodeURIComponent(query)}`);
+        const data = await res.json();
+        
+        loader.style.display = 'none';
+
+        if (data.results && data.results.length > 0) {
+          data.results.forEach(item => {
+            if (item.type !== 'video') return; // Hanya render video
+            
+            const card = document.createElement('a');
+            // Jika ingin ke youtube asli saat di klik:
+            card.href = `https://www.youtube.com/watch?v=${item.id}`;
+            card.target = "_blank"; 
+            card.className = 'video-card';
+            card.innerHTML = `
+              <img src="${item.thumbnail}" alt="Thumbnail" class="thumbnail" loading="lazy">
+              <div class="info">
+                <div class="avatar"></div>
+                <div class="meta">
+                  <h3 class="title">${item.title}</h3>
+                  <p class="channel">${item.channel || 'Channel'}</p>
+                  <p class="views">${item.views || 'Unknown views'}</p>
+                </div>
+              </div>
+            `;
+            grid.appendChild(card);
+          });
+        } else {
+          grid.innerHTML = '<p style="color: #aaa;">Video tidak ditemukan.</p>';
+        }
+      } catch (err) {
+        loader.style.display = 'none';
+        grid.innerHTML = `<p style="color: red;">Gagal memuat: ${err.message}</p>`;
+      }
+    }
+
+    // Handle form search
+    searchForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      loadVideos(searchInput.value);
+    });
+
+    // Load awal saat web dibuka
+    window.onload = () => loadVideos('music lo-fi');
+  </script>
+</body>
+</html>
