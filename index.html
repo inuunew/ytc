@@ -9,7 +9,6 @@
     * { box-sizing: border-box; }
     body { margin: 0; font-family: Roboto, Arial, sans-serif; background-color: var(--bg); color: var(--text); overflow-y: scroll; }
     
-    /* Header & Navigasi */
     header { display: flex; align-items: center; justify-content: space-between; padding: 12px 24px; background: var(--bg); position: sticky; top: 0; z-index: 100; border-bottom: 1px solid var(--border); }
     .logo { font-size: 20px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 6px; }
     .logo span { background: var(--red); color: white; padding: 2px 6px; border-radius: 6px; font-size: 12px; }
@@ -22,12 +21,10 @@
     .search-form input { width: 100%; max-width: 300px; padding: 8px 14px; background: #121212; border: 1px solid var(--border); border-radius: 20px 0 0 20px; color: #fff; outline: none; }
     .search-form button { padding: 8px 16px; background: #222; border: 1px solid var(--border); border-left: none; border-radius: 0 20px 20px 0; color: #fff; cursor: pointer; }
 
-    /* Container Utama */
     main { padding: 20px; max-width: 1400px; margin: 0 auto; }
     .view-section { display: none; }
     .view-section.active { display: block; }
 
-    /* Grid Video & Shorts */
     .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
     .grid-shorts { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; }
     
@@ -43,17 +40,17 @@
     .card-title { font-size: 14px; font-weight: 600; margin: 0 0 6px 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.3; }
     .card-meta { font-size: 12px; color: var(--muted); margin: 0; line-height: 1.4; }
 
-    /* Halaman Tonton (Watch View) */
     #watchView { display: none; grid-template-columns: 1fr; gap: 24px; }
     @media (min-width: 900px) { #watchView { grid-template-columns: 1fr 350px; display: grid; } }
     
+    /* Perbaikan Container Player */
     .player-container { width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; }
+    .player-container iframe { width: 100%; height: 100%; border: none; }
     
-    /* Toggle Autoplay / Loop */
     .video-details { margin-top: 16px; margin-bottom: 24px; display: flex; flex-direction: column; gap: 12px;}
     .video-details h1 { font-size: 18px; margin: 0; }
-    .controls-row { display: flex; align-items: center; justify-content: space-between; background: var(--card-bg); padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); }
     
+    .controls-row { display: flex; align-items: center; justify-content: space-between; background: var(--card-bg); padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); }
     .switch-wrap { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 500;}
     .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
     .switch input { opacity: 0; width: 0; height: 0; }
@@ -62,10 +59,8 @@
     input:checked + .slider { background-color: var(--red); }
     input:checked + .slider:before { transform: translateX(20px); }
     .mode-label { color: var(--muted); }
-    input:checked ~ .mode-label .mode-auto { color: #fff; font-weight: bold; }
-    input:not(:checked) ~ .mode-label .mode-loop { color: #fff; font-weight: bold; }
+    input:checked ~ .mode-label { color: #fff; font-weight: bold; }
 
-    /* Video Terkait */
     .related-title { font-size: 16px; margin: 0 0 12px 0; }
     .related-item { display: flex; gap: 10px; margin-bottom: 12px; cursor: pointer; }
     .related-thumb-box { position: relative; width: 140px; aspect-ratio: 16/9; flex-shrink: 0; background: #222; border-radius: 6px; overflow: hidden; }
@@ -73,15 +68,12 @@
     .related-info h4 { font-size: 13px; margin: 0 0 4px 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.3;}
     .related-info p { font-size: 11px; color: var(--muted); margin: 0; line-height: 1.4; }
 
-    /* Skeleton Loading Animasi */
     @keyframes pulse { 0% { background-color: #2a2a2a; } 50% { background-color: #3f3f3f; } 100% { background-color: #2a2a2a; } }
     .skeleton-box { animation: pulse 1.5s infinite ease-in-out; }
     .skeleton-text { height: 12px; margin-top: 8px; border-radius: 4px; animation: pulse 1.5s infinite ease-in-out; }
     .skeleton-title { width: 90%; height: 16px; }
     .skeleton-meta { width: 60%; }
   </style>
-  <!-- Load YouTube Iframe API -->
-  <script src="https://www.youtube.com/iframe_api"></script>
 </head>
 <body>
 
@@ -100,35 +92,30 @@
   </header>
 
   <main>
-    <!-- View Halaman Utama (Beranda / Pencarian) -->
     <div id="searchView" class="view-section active">
       <div class="grid" id="videoGrid"></div>
     </div>
 
-    <!-- View Halaman Shorts -->
     <div id="shortsView" class="view-section">
       <div class="grid-shorts" id="shortsGrid"></div>
     </div>
 
-    <!-- View Halaman Tonton -->
     <div id="watchView" class="view-section">
       <div class="main-player-col">
         <div class="player-container">
-          <!-- Div kosong ini akan otomatis diisi Iframe oleh YouTube API -->
-          <div id="ytPlayerDiv"></div>
+          <!-- Menggunakan Iframe murni, bebas lag dan bebas black screen -->
+          <iframe id="videoPlayer" src="" allowfullscreen allow="autoplay"></iframe>
         </div>
         <div class="video-details">
           <h1 id="vTitle">Memutar Video...</h1>
           <div class="controls-row">
-            <span style="font-size: 14px; color: var(--muted);">Kontrol Pemutaran</span>
+            <span style="font-size: 14px; color: var(--muted);">Ulangi Video Ini Terus (Loop)</span>
             <div class="switch-wrap">
               <label class="switch">
-                <input type="checkbox" id="autoNextToggle" checked>
+                <input type="checkbox" id="loopToggle" onchange="toggleLoop()">
                 <span class="slider"></span>
               </label>
-              <span class="mode-label">
-                <span class="mode-loop">Putar Ulang</span> / <span class="mode-auto">Lanjut Otomatis</span>
-              </span>
+              <span class="mode-label">Aktifkan Loop</span>
             </div>
           </div>
         </div>
@@ -147,12 +134,10 @@
     const watchView = document.getElementById('watchView');
     const videoGrid = document.getElementById('videoGrid');
     const shortsGrid = document.getElementById('shortsGrid');
+    const videoPlayer = document.getElementById('videoPlayer');
     
-    let ytPlayer = null;
-    let nextVideoId = null;
-    let nextVideoTitle = null;
+    let currentVideoId = "";
 
-    // Fungsi Skeleton Loading (Pengganti Teks "Memuat...")
     function showSkeleton(container, type, count = 12) {
       container.innerHTML = '';
       for (let i = 0; i < count; i++) {
@@ -168,7 +153,6 @@
       }
     }
 
-    // Navigasi Tab
     function switchTab(tab) {
       document.getElementById('tabSearch').classList.remove('active');
       document.getElementById('tabShorts').classList.remove('active');
@@ -177,12 +161,12 @@
       shortsView.classList.remove('active');
       watchView.classList.remove('active');
       
-      if(ytPlayer && typeof ytPlayer.stopVideo === 'function') ytPlayer.stopVideo(); // Stop saat pindah tab
+      videoPlayer.src = ""; // Matikan video saat pindah tab
 
       if (tab === 'search') {
         document.getElementById('tabSearch').classList.add('active');
         searchView.classList.add('active');
-        if (videoGrid.innerHTML === '') searchVideos('Musik pop indonesia');
+        if (videoGrid.innerHTML === '') searchVideos('Musik pop indonesia terbaru');
       } else if (tab === 'shorts') {
         document.getElementById('tabShorts').classList.add('active');
         shortsView.classList.add('active');
@@ -190,7 +174,6 @@
       }
     }
 
-    // Mengambil Hasil Pencarian / Beranda
     async function searchVideos(query) {
       switchTab('search');
       showSkeleton(videoGrid, 'video');
@@ -200,7 +183,7 @@
         const data = await res.json();
         videoGrid.innerHTML = '';
 
-        if (data.results) {
+        if (data.results && data.results.length > 0) {
           data.results.forEach(item => {
             if (item.type !== 'video' || !item.id) return;
             const timeText = item.publishTime ? ` • ${item.publishTime}` : '';
@@ -219,13 +202,14 @@
             `;
             videoGrid.appendChild(card);
           });
+        } else {
+          videoGrid.innerHTML = '<p>Video tidak ditemukan.</p>';
         }
       } catch (err) {
         videoGrid.innerHTML = '<p>Gagal memuat video.</p>';
       }
     }
 
-    // Mengambil Halaman Shorts
     async function loadShorts() {
       showSkeleton(shortsGrid, 'short');
       try {
@@ -233,7 +217,7 @@
         const data = await res.json();
         shortsGrid.innerHTML = '';
 
-        if (data.results) {
+        if (data.results && data.results.length > 0) {
           data.results.forEach(item => {
             if (!item.id) return;
             const card = document.createElement('div');
@@ -248,13 +232,14 @@
             `;
             shortsGrid.appendChild(card);
           });
+        } else {
+          shortsGrid.innerHTML = '<p>Gagal memuat Shorts. Coba lagi.</p>';
         }
       } catch (err) {
         shortsGrid.innerHTML = '<p>Gagal memuat Shorts.</p>';
       }
     }
 
-    // Menangani Pemutaran Video & API Iframe YouTube
     function playVideo(videoId, title) {
       document.getElementById('tabSearch').classList.remove('active');
       document.getElementById('tabShorts').classList.remove('active');
@@ -264,24 +249,15 @@
       watchView.classList.add('active');
       window.scrollTo(0, 0);
 
+      currentVideoId = videoId;
       document.getElementById('vTitle').innerText = title || "Sedang Memutar...";
       
-      // Inisialisasi atau Update Video di YT Player
-      if (window.YT && YT.Player) {
-        if (!ytPlayer) {
-          ytPlayer = new YT.Player('ytPlayerDiv', {
-            videoId: videoId,
-            playerVars: { 'autoplay': 1, 'rel': 0 },
-            events: { 'onStateChange': onPlayerStateChange }
-          });
-        } else {
-          ytPlayer.loadVideoById(videoId);
-        }
-      }
+      // Matikan toggle loop saat video baru diputar
+      document.getElementById('loopToggle').checked = false;
+      setPlayerUrl();
 
       // Ambil Video Terkait
       document.getElementById('relatedList').innerHTML = '<p style="color:var(--muted)">Memuat...</p>';
-      nextVideoId = null; 
 
       fetch(`/api/yt?action=related&id=${videoId}`)
         .then(r => r.json())
@@ -289,11 +265,6 @@
           const relatedContainer = document.getElementById('relatedList');
           relatedContainer.innerHTML = '';
           if (data.results && data.results.length > 0) {
-            
-            // Simpan video urutan pertama untuk fitur Auto-Next
-            nextVideoId = data.results[0].id;
-            nextVideoTitle = data.results[0].title;
-
             data.results.forEach(item => {
               if (item.type !== 'video' || !item.id) return;
               const timeText = item.publishTime ? ` • ${item.publishTime}` : '';
@@ -319,28 +290,27 @@
         });
     }
 
-    // Listener Event saat Video Selesai / Habis Durasi
-    function onPlayerStateChange(event) {
-      if (event.data === YT.PlayerState.ENDED) {
-        const isAutoNext = document.getElementById('autoNextToggle').checked;
-        if (isAutoNext && nextVideoId) {
-          // Lanjut ke video berikutnya
-          playVideo(nextVideoId, nextVideoTitle);
-        } else {
-          // Putar ulang video saat ini
-          ytPlayer.seekTo(0);
-          ytPlayer.playVideo();
-        }
-      }
+    // Fungsi untuk merubah URL Iframe saat tombol Loop ditekan
+    function toggleLoop() {
+      setPlayerUrl();
     }
 
-    // Submit Pencarian
+    function setPlayerUrl() {
+      const isLoop = document.getElementById('loopToggle').checked;
+      // Parameter YouTube Iframe murni (bebas nge-lag)
+      // Jika loop aktif, YT mewajibkan parameter playlist disamakan dengan ID video
+      let url = `https://www.youtube-nocookie.com/embed/${currentVideoId}?autoplay=1`;
+      if (isLoop) {
+        url += `&loop=1&playlist=${currentVideoId}`;
+      }
+      videoPlayer.src = url;
+    }
+
     document.getElementById('searchForm').addEventListener('submit', (e) => {
       e.preventDefault();
       searchVideos(document.getElementById('searchInput').value);
     });
 
-    // Mulai dengan mencari data awal saat dibuka
     window.onload = () => switchTab('search');
   </script>
 </body>
