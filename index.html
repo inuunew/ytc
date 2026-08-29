@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>YouTube Web Player</title>
+  <title>YouTube Web Stream Player</title>
   <style>
     :root { --bg: #0f0f0f; --card-bg: #1f1f1f; --text: #f1f1f1; --muted: #aaaaaa; --border: #303030; }
     * { box-sizing: border-box; }
@@ -55,7 +55,12 @@
 
     .player-container { width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; }
     .player-container iframe { width: 100%; height: 100%; border: none; }
-    .video-details { margin-top: 16px; margin-bottom: 24px; }
+    
+    .video-controls-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; padding: 12px; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border); }
+    .server-selector-container { display: flex; align-items: center; gap: 8px; }
+    .server-selector-container select { background: #121212; color: #fff; border: 1px solid var(--border); padding: 6px 12px; border-radius: 6px; font-size: 13px; outline: none; cursor: pointer; }
+
+    .video-details { margin-top: 12px; margin-bottom: 24px; }
     .video-details h1 { font-size: 18px; margin: 0; }
 
     /* Related Sidebar */
@@ -85,6 +90,7 @@
   <main>
     <div id="loader">Memuat data...</div>
 
+    <!-- Halaman Pencarian & Grid -->
     <div id="searchView">
       <div class="grid" id="videoGrid"></div>
       <div class="load-more-container" id="loadMoreContainer" style="display: none;">
@@ -92,16 +98,31 @@
       </div>
     </div>
 
+    <!-- Halaman Pemutar Video (Watch View) -->
     <div id="watchView">
       <div class="main-player-col">
         <div class="player-container">
           <iframe id="videoPlayer" src="" allowfullscreen allow="autoplay"></iframe>
         </div>
+        
+        <!-- Bar Kontrol Tambahan (Dropdown Server) -->
+        <div class="video-controls-bar">
+          <div class="server-selector-container">
+            <label for="serverDropdown" style="font-size: 13px; color: var(--muted);">Server:</label>
+            <select id="serverDropdown" onchange="changeServer()">
+              <option value="server1">Server 1 (Primary Direct)</option>
+              <option value="server2">Server 2 (Proxy Stream)</option>
+              <option value="server3">Server 3 (Alternative CDN)</option>
+            </select>
+          </div>
+        </div>
+
         <div class="video-details">
           <h1 id="vTitle">Memutar Video...</h1>
         </div>
       </div>
 
+      <!-- Sidebar Video Terkait -->
       <div class="sidebar-col">
         <h3 class="related-title">Video Terkait</h3>
         <div id="relatedList"></div>
@@ -121,6 +142,7 @@
 
     let currentQuery = '';
     let nextContinuationToken = null;
+    let activeVideoId = '';
 
     function showSearchPage() {
       watchView.style.display = 'none';
@@ -236,6 +258,7 @@
     });
 
     function playVideo(videoId, title) {
+      activeVideoId = videoId;
       searchView.style.display = 'none';
       watchView.style.display = 'grid';
       suggestionsBox.style.display = 'none';
@@ -243,7 +266,8 @@
 
       document.getElementById('vTitle').innerText = title || "Sedang Memutar...";
       document.getElementById('relatedList').innerHTML = "";
-      document.getElementById('videoPlayer').src = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&modestbranding=1&rel=0`;
+      
+      loadStreamWithCurrentServer(videoId);
 
       fetch(`/api/yt?action=related&id=${videoId}`)
         .then(r => r.json())
@@ -278,6 +302,26 @@
         }).catch(e => {
           console.error("Gagal memuat video terkait:", e);
         });
+    }
+
+    // Mengatur sumber stream berdasarkan pilihan server di dropdown
+    function loadStreamWithCurrentServer(videoId) {
+      const selectedServer = document.getElementById('serverDropdown').value;
+      const player = document.getElementById('videoPlayer');
+
+      if (selectedServer === 'server1') {
+        player.src = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&modestbranding=1&rel=0`;
+      } else if (selectedServer === 'server2') {
+        player.src = `/api/stream?id=${videoId}&server=2`;
+      } else if (selectedServer === 'server3') {
+        player.src = `/api/stream?id=${videoId}&server=3`;
+      }
+    }
+
+    function changeServer() {
+      if (activeVideoId) {
+        loadStreamWithCurrentServer(activeVideoId);
+      }
     }
 
     searchForm.addEventListener('submit', (e) => {
