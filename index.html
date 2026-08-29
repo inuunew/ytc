@@ -5,119 +5,100 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>YouTube Web Player</title>
   <style>
-    :root { --bg: #0f0f0f; --card-bg: #1f1f1f; --text: #f1f1f1; --muted: #aaaaaa; --border: #303030; --red: #ff0000; }
+    :root { --bg: #0f0f0f; --card-bg: #1f1f1f; --text: #f1f1f1; --muted: #aaaaaa; --border: #303030; }
     * { box-sizing: border-box; }
-    body { margin: 0; font-family: Roboto, Arial, sans-serif; background-color: var(--bg); color: var(--text); overflow-y: scroll; }
+    body { margin: 0; font-family: Roboto, Arial, sans-serif; background-color: var(--bg); color: var(--text); }
     
+    /* Header */
     header { display: flex; align-items: center; justify-content: space-between; padding: 12px 24px; background: var(--bg); position: sticky; top: 0; z-index: 100; border-bottom: 1px solid var(--border); }
     .logo { font-size: 20px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 6px; }
-    .logo span { background: var(--red); color: white; padding: 2px 6px; border-radius: 6px; font-size: 12px; }
+    .logo span { background: red; color: white; padding: 2px 6px; border-radius: 6px; font-size: 12px; }
     
-    .nav-tabs { display: flex; gap: 16px; margin-left: 20px; }
-    .nav-tab { cursor: pointer; padding: 6px 12px; border-radius: 16px; background: #222; font-size: 14px; font-weight: 500; transition: 0.2s; }
-    .nav-tab.active { background: var(--text); color: var(--bg); }
+    /* Search Box & Suggestions */
+    .search-container { position: relative; flex: 1; max-width: 500px; margin: 0 16px; }
+    .search-form { display: flex; width: 100%; }
+    .search-form input { flex: 1; padding: 10px 14px; background: #121212; border: 1px solid var(--border); border-radius: 20px 0 0 20px; color: #fff; outline: none; }
+    .search-form button { padding: 10px 18px; background: #222; border: 1px solid var(--border); border-left: none; border-radius: 0 20px 20px 0; color: #fff; cursor: pointer; }
 
-    .search-form { display: flex; flex: 1; max-width: 400px; margin: 0 16px; justify-content: flex-end; }
-    .search-form input { width: 100%; max-width: 300px; padding: 8px 14px; background: #121212; border: 1px solid var(--border); border-radius: 20px 0 0 20px; color: #fff; outline: none; }
-    .search-form button { padding: 8px 16px; background: #222; border: 1px solid var(--border); border-left: none; border-radius: 0 20px 20px 0; color: #fff; cursor: pointer; }
+    .suggestions-box { position: absolute; top: 100%; left: 0; right: 0; background: #212121; border: 1px solid var(--border); border-top: none; border-radius: 0 0 12px 12px; z-index: 200; max-height: 250px; overflow-y: auto; display: none; }
+    .suggestion-item { padding: 10px 14px; font-size: 14px; cursor: pointer; color: #eee; }
+    .suggestion-item:hover { background: #2a2a2a; }
 
+    /* Layout Containers */
     main { padding: 20px; max-width: 1400px; margin: 0 auto; }
-    .view-section { display: none; }
-    .view-section.active { display: block; }
+    #loader { text-align: center; padding: 40px; color: var(--muted); display: none; }
 
+    /* Search Results Grid */
     .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
-    .grid-shorts { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; }
-    
-    .video-card { display: flex; flex-direction: column; cursor: pointer; border-radius: 8px; background: transparent; transition: transform 0.2s; }
+    .video-card { display: flex; flex-direction: column; cursor: pointer; border-radius: 8px; overflow: hidden; background: transparent; transition: transform 0.2s; }
     .video-card:hover { transform: translateY(-3px); }
+    
     .thumb-box { position: relative; width: 100%; aspect-ratio: 16/9; background: #222; overflow: hidden; border-radius: 8px; }
-    .thumb-box.short-ratio { aspect-ratio: 9/16; }
     .thumb-box img { width: 100%; height: 100%; object-fit: cover; }
     
-    .duration-badge { position: absolute; bottom: 6px; right: 6px; background: rgba(0,0,0,0.8); color: #fff; font-size: 11px; font-weight: 500; padding: 3px 6px; border-radius: 4px; line-height: 1; }
+    .duration-badge { position: absolute; bottom: 6px; right: 6px; background-color: rgba(0, 0, 0, 0.8); color: white; font-size: 11px; font-weight: 500; padding: 3px 6px; border-radius: 4px; line-height: 1; }
     
     .card-info { padding: 10px 0; }
     .card-title { font-size: 14px; font-weight: 600; margin: 0 0 6px 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.3; }
-    .card-meta { font-size: 12px; color: var(--muted); margin: 0; line-height: 1.4; }
+    .card-meta { font-size: 12px; color: var(--muted); margin: 0; }
 
+    /* Load More Button */
+    .load-more-container { text-align: center; margin: 30px 0; }
+    .load-more-btn { background: #222; color: #fff; border: 1px solid var(--border); padding: 10px 24px; border-radius: 20px; cursor: pointer; font-size: 14px; font-weight: 500; }
+    .load-more-btn:hover { background: #333; }
+
+    /* Watch Page Layout */
     #watchView { display: none; grid-template-columns: 1fr; gap: 24px; }
-    @media (min-width: 900px) { #watchView { grid-template-columns: 1fr 350px; display: grid; } }
-    
-    /* Perbaikan Container Player */
+    @media (min-width: 900px) {
+      #watchView { grid-template-columns: 1fr 350px; }
+    }
+
     .player-container { width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; }
     .player-container iframe { width: 100%; height: 100%; border: none; }
-    
-    .video-details { margin-top: 16px; margin-bottom: 24px; display: flex; flex-direction: column; gap: 12px;}
+    .video-details { margin-top: 16px; margin-bottom: 24px; }
     .video-details h1 { font-size: 18px; margin: 0; }
-    
-    .controls-row { display: flex; align-items: center; justify-content: space-between; background: var(--card-bg); padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); }
-    .switch-wrap { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 500;}
-    .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
-    .switch input { opacity: 0; width: 0; height: 0; }
-    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #555; transition: .3s; border-radius: 24px; }
-    .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
-    input:checked + .slider { background-color: var(--red); }
-    input:checked + .slider:before { transform: translateX(20px); }
-    .mode-label { color: var(--muted); }
-    input:checked ~ .mode-label { color: #fff; font-weight: bold; }
 
+    /* Related Sidebar */
     .related-title { font-size: 16px; margin: 0 0 12px 0; }
     .related-item { display: flex; gap: 10px; margin-bottom: 12px; cursor: pointer; }
-    .related-thumb-box { position: relative; width: 140px; aspect-ratio: 16/9; flex-shrink: 0; background: #222; border-radius: 6px; overflow: hidden; }
+    .related-thumb-box { position: relative; width: 120px; flex-shrink: 0; }
+    .related-thumb { width: 100%; aspect-ratio: 16/9; border-radius: 6px; object-fit: cover; background: #222; display: block; }
     .related-info { display: flex; flex-direction: column; justify-content: center; }
-    .related-info h4 { font-size: 13px; margin: 0 0 4px 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.3;}
-    .related-info p { font-size: 11px; color: var(--muted); margin: 0; line-height: 1.4; }
-
-    @keyframes pulse { 0% { background-color: #2a2a2a; } 50% { background-color: #3f3f3f; } 100% { background-color: #2a2a2a; } }
-    .skeleton-box { animation: pulse 1.5s infinite ease-in-out; }
-    .skeleton-text { height: 12px; margin-top: 8px; border-radius: 4px; animation: pulse 1.5s infinite ease-in-out; }
-    .skeleton-title { width: 90%; height: 16px; }
-    .skeleton-meta { width: 60%; }
+    .related-info h4 { font-size: 12px; margin: 0 0 4px 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .related-info p { font-size: 11px; color: var(--muted); margin: 0; }
   </style>
 </head>
 <body>
 
   <header>
-    <div style="display:flex; align-items:center;">
-      <div class="logo" onclick="switchTab('search')">YT <span>STREAM</span></div>
-      <div class="nav-tabs">
-        <div class="nav-tab active" id="tabSearch" onclick="switchTab('search')">Beranda</div>
-        <div class="nav-tab" id="tabShorts" onclick="switchTab('shorts')">Shorts</div>
-      </div>
+    <div class="logo" onclick="showSearchPage()">YT <span>STREAM</span></div>
+    
+    <div class="search-container">
+      <form class="search-form" id="searchForm">
+        <input type="text" id="searchInput" placeholder="Cari video..." autocomplete="off" required>
+        <button type="submit">Cari</button>
+      </form>
+      <div class="suggestions-box" id="suggestionsBox"></div>
     </div>
-    <form class="search-form" id="searchForm">
-      <input type="text" id="searchInput" placeholder="Cari video..." required>
-      <button type="submit">Cari</button>
-    </form>
   </header>
 
   <main>
-    <div id="searchView" class="view-section active">
+    <div id="loader">Memuat data...</div>
+
+    <div id="searchView">
       <div class="grid" id="videoGrid"></div>
+      <div class="load-more-container" id="loadMoreContainer" style="display: none;">
+        <button class="load-more-btn" id="loadMoreBtn" onclick="loadMoreVideos()">Muat Lebih Banyak</button>
+      </div>
     </div>
 
-    <div id="shortsView" class="view-section">
-      <div class="grid-shorts" id="shortsGrid"></div>
-    </div>
-
-    <div id="watchView" class="view-section">
+    <div id="watchView">
       <div class="main-player-col">
         <div class="player-container">
-          <!-- Menggunakan Iframe murni, bebas lag dan bebas black screen -->
           <iframe id="videoPlayer" src="" allowfullscreen allow="autoplay"></iframe>
         </div>
         <div class="video-details">
           <h1 id="vTitle">Memutar Video...</h1>
-          <div class="controls-row">
-            <span style="font-size: 14px; color: var(--muted);">Ulangi Video Ini Terus (Loop)</span>
-            <div class="switch-wrap">
-              <label class="switch">
-                <input type="checkbox" id="loopToggle" onchange="toggleLoop()">
-                <span class="slider"></span>
-              </label>
-              <span class="mode-label">Aktifkan Loop</span>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -130,66 +111,62 @@
 
   <script>
     const searchView = document.getElementById('searchView');
-    const shortsView = document.getElementById('shortsView');
     const watchView = document.getElementById('watchView');
+    const loader = document.getElementById('loader');
     const videoGrid = document.getElementById('videoGrid');
-    const shortsGrid = document.getElementById('shortsGrid');
-    const videoPlayer = document.getElementById('videoPlayer');
-    
-    let currentVideoId = "";
+    const searchForm = document.getElementById('searchForm');
+    const searchInput = document.getElementById('searchInput');
+    const suggestionsBox = document.getElementById('suggestionsBox');
+    const loadMoreContainer = document.getElementById('loadMoreContainer');
 
-    function showSkeleton(container, type, count = 12) {
-      container.innerHTML = '';
-      for (let i = 0; i < count; i++) {
-        container.innerHTML += `
-          <div class="video-card">
-            <div class="thumb-box skeleton-box ${type === 'short' ? 'short-ratio' : ''}"></div>
-            <div class="card-info">
-              <div class="skeleton-text skeleton-title"></div>
-              <div class="skeleton-text skeleton-meta"></div>
-            </div>
-          </div>
-        `;
-      }
+    let currentQuery = '';
+    let nextContinuationToken = null;
+
+    function showSearchPage() {
+      watchView.style.display = 'none';
+      searchView.style.display = 'block';
+      document.getElementById('videoPlayer').src = '';
     }
 
-    function switchTab(tab) {
-      document.getElementById('tabSearch').classList.remove('active');
-      document.getElementById('tabShorts').classList.remove('active');
-      
-      searchView.classList.remove('active');
-      shortsView.classList.remove('active');
-      watchView.classList.remove('active');
-      
-      videoPlayer.src = ""; // Matikan video saat pindah tab
-
-      if (tab === 'search') {
-        document.getElementById('tabSearch').classList.add('active');
-        searchView.classList.add('active');
-        if (videoGrid.innerHTML === '') searchVideos('Musik pop indonesia terbaru');
-      } else if (tab === 'shorts') {
-        document.getElementById('tabShorts').classList.add('active');
-        shortsView.classList.add('active');
-        if (shortsGrid.innerHTML === '') loadShorts();
+    // 1. Fitur Search & Load More
+    async function searchVideos(query, isLoadMore = false) {
+      if (!isLoadMore) {
+        showSearchPage();
+        videoGrid.innerHTML = '';
+        currentQuery = query;
+        nextContinuationToken = null;
+        loader.style.display = 'block';
+      } else {
+        document.getElementById('loadMoreBtn').innerText = "Memuat...";
       }
-    }
-
-    async function searchVideos(query) {
-      switchTab('search');
-      showSkeleton(videoGrid, 'video');
 
       try {
-        const res = await fetch(`/api/yt?action=search&q=${encodeURIComponent(query)}`);
-        const data = await res.json();
-        videoGrid.innerHTML = '';
+        let url = `/api/yt?action=search&q=${encodeURIComponent(query)}`;
+        if (isLoadMore && nextContinuationToken) {
+          url += `&continuation=${encodeURIComponent(nextContinuationToken)}`;
+        }
 
-        if (data.results && data.results.length > 0) {
+        const res = await fetch(url);
+        const data = await res.json();
+        
+        loader.style.display = 'none';
+        if (isLoadMore) document.getElementById('loadMoreBtn').innerText = "Muat Lebih Banyak";
+
+        nextContinuationToken = data.continuationToken || null;
+        loadMoreContainer.style.display = nextContinuationToken ? 'block' : 'none';
+
+        if (data.results) {
           data.results.forEach(item => {
             if (item.type !== 'video' || !item.id) return;
-            const timeText = item.publishTime ? ` • ${item.publishTime}` : '';
             const card = document.createElement('div');
             card.className = 'video-card';
             card.onclick = () => playVideo(item.id, item.title);
+            
+            // Format meta info (views & published time)
+            let metaText = item.channel || '';
+            if (item.views) metaText += ` • ${item.views}`;
+            if (item.published) metaText += ` • ${item.published}`;
+
             card.innerHTML = `
               <div class="thumb-box">
                 <img src="${item.thumbnail}" loading="lazy">
@@ -197,121 +174,120 @@
               </div>
               <div class="card-info">
                 <h3 class="card-title">${item.title}</h3>
-                <p class="card-meta">${item.channel || ''}<br>${item.views || ''}${timeText}</p>
+                <p class="card-meta">${metaText}</p>
               </div>
             `;
             videoGrid.appendChild(card);
           });
-        } else {
-          videoGrid.innerHTML = '<p>Video tidak ditemukan.</p>';
         }
       } catch (err) {
-        videoGrid.innerHTML = '<p>Gagal memuat video.</p>';
+        loader.style.display = 'none';
+        if (isLoadMore) document.getElementById('loadMoreBtn').innerText = "Muat Lebih Banyak";
+        alert("Gagal memuat video: " + err.message);
       }
     }
 
-    async function loadShorts() {
-      showSkeleton(shortsGrid, 'short');
-      try {
-        const res = await fetch(`/api/yt?action=shorts`);
-        const data = await res.json();
-        shortsGrid.innerHTML = '';
-
-        if (data.results && data.results.length > 0) {
-          data.results.forEach(item => {
-            if (!item.id) return;
-            const card = document.createElement('div');
-            card.className = 'video-card';
-            card.onclick = () => playVideo(item.id, item.title);
-            card.innerHTML = `
-              <div class="thumb-box short-ratio"><img src="${item.thumbnail}" loading="lazy"></div>
-              <div class="card-info">
-                <h3 class="card-title">${item.title}</h3>
-                <p class="card-meta">${item.views || ''}</p>
-              </div>
-            `;
-            shortsGrid.appendChild(card);
-          });
-        } else {
-          shortsGrid.innerHTML = '<p>Gagal memuat Shorts. Coba lagi.</p>';
-        }
-      } catch (err) {
-        shortsGrid.innerHTML = '<p>Gagal memuat Shorts.</p>';
+    function loadMoreVideos() {
+      if (nextContinuationToken) {
+        searchVideos(currentQuery, true);
       }
     }
 
+    // 2. Fitur Auto-Suggest (menggunakan API publik Google/YouTube Suggestion)
+    let debounceTimer;
+    searchInput.addEventListener('input', (e) => {
+      const keyword = e.target.value.trim();
+      clearTimeout(debounceTimer);
+      if (keyword.length < 2) {
+        suggestionsBox.style.display = 'none';
+        return;
+      }
+
+      debounceTimer = setTimeout(async () => {
+        try {
+          const res = await fetch(`https://suggestqueries.google.com/complete/search?client=firefox&ds=yt&q=${encodeURIComponent(keyword)}`);
+          const data = await res.json();
+          const suggestions = data[1] || [];
+
+          suggestionsBox.innerHTML = '';
+          if (suggestions.length > 0) {
+            suggestions.forEach(s => {
+              const div = document.createElement('div');
+              div.className = 'suggestion-item';
+              div.innerText = s;
+              div.onclick = () => {
+                searchInput.value = s;
+                suggestionsBox.style.display = 'none';
+                searchVideos(s);
+              };
+              suggestionsBox.appendChild(div);
+            });
+            suggestionsBox.style.display = 'block';
+          } else {
+            suggestionsBox.style.display = 'none';
+          }
+        } catch (err) {
+          suggestionsBox.style.display = 'none';
+        }
+      }, 300);
+    });
+
+    // Sembunyikan suggestions saat klik di luar
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.search-container')) {
+        suggestionsBox.style.display = 'none';
+      }
+    });
+
+    // 3. Play Video & Related List
     function playVideo(videoId, title) {
-      document.getElementById('tabSearch').classList.remove('active');
-      document.getElementById('tabShorts').classList.remove('active');
-      
-      searchView.classList.remove('active');
-      shortsView.classList.remove('active');
-      watchView.classList.add('active');
+      searchView.style.display = 'none';
+      watchView.style.display = 'grid';
+      suggestionsBox.style.display = 'none';
       window.scrollTo(0, 0);
 
-      currentVideoId = videoId;
       document.getElementById('vTitle').innerText = title || "Sedang Memutar...";
-      
-      // Matikan toggle loop saat video baru diputar
-      document.getElementById('loopToggle').checked = false;
-      setPlayerUrl();
-
-      // Ambil Video Terkait
-      document.getElementById('relatedList').innerHTML = '<p style="color:var(--muted)">Memuat...</p>';
+      document.getElementById('relatedList').innerHTML = "";
+      document.getElementById('videoPlayer').src = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1`;
 
       fetch(`/api/yt?action=related&id=${videoId}`)
         .then(r => r.json())
         .then(data => {
           const relatedContainer = document.getElementById('relatedList');
-          relatedContainer.innerHTML = '';
-          if (data.results && data.results.length > 0) {
+          if (data.results) {
             data.results.forEach(item => {
               if (item.type !== 'video' || !item.id) return;
-              const timeText = item.publishTime ? ` • ${item.publishTime}` : '';
               const rel = document.createElement('div');
               rel.className = 'related-item';
               rel.onclick = () => playVideo(item.id, item.title);
+              
+              let relMeta = item.channel || '';
+              if (item.views) relMeta += ` • ${item.views}`;
+              if (item.published) relMeta += ` • ${item.published}`;
+
               rel.innerHTML = `
                 <div class="related-thumb-box">
-                  <img style="width:100%; height:100%; object-fit:cover;" src="${item.thumbnail}" loading="lazy">
+                  <img class="related-thumb" src="${item.thumbnail}" loading="lazy">
                   ${item.duration ? `<span class="duration-badge">${item.duration}</span>` : ''}
                 </div>
                 <div class="related-info">
                   <h4>${item.title}</h4>
-                  <p>${item.channel || ''}</p>
-                  <p>${item.views || ''}${timeText}</p>
+                  <p>${relMeta}</p>
                 </div>
               `;
               relatedContainer.appendChild(rel);
             });
           }
-        }).catch(e => {
-          document.getElementById('relatedList').innerHTML = '';
-        });
+        }).catch(e => console.error("Gagal memuat video terkait:", e));
     }
 
-    // Fungsi untuk merubah URL Iframe saat tombol Loop ditekan
-    function toggleLoop() {
-      setPlayerUrl();
-    }
-
-    function setPlayerUrl() {
-      const isLoop = document.getElementById('loopToggle').checked;
-      // Parameter YouTube Iframe murni (bebas nge-lag)
-      // Jika loop aktif, YT mewajibkan parameter playlist disamakan dengan ID video
-      let url = `https://www.youtube-nocookie.com/embed/${currentVideoId}?autoplay=1`;
-      if (isLoop) {
-        url += `&loop=1&playlist=${currentVideoId}`;
-      }
-      videoPlayer.src = url;
-    }
-
-    document.getElementById('searchForm').addEventListener('submit', (e) => {
+    searchForm.addEventListener('submit', (e) => {
       e.preventDefault();
-      searchVideos(document.getElementById('searchInput').value);
+      suggestionsBox.style.display = 'none';
+      searchVideos(searchInput.value);
     });
 
-    window.onload = () => switchTab('search');
+    window.onload = () => searchVideos('musik indonesia terbaru');
   </script>
 </body>
 </html>
