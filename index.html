@@ -128,7 +128,6 @@
       document.getElementById('videoPlayer').src = '';
     }
 
-    // 1. Fitur Search & Load More
     async function searchVideos(query, isLoadMore = false) {
       if (!isLoadMore) {
         showSearchPage();
@@ -162,7 +161,6 @@
             card.className = 'video-card';
             card.onclick = () => playVideo(item.id, item.title);
             
-            // Format meta info (views & published time)
             let metaText = item.channel || '';
             if (item.views) metaText += ` • ${item.views}`;
             if (item.published) metaText += ` • ${item.published}`;
@@ -193,7 +191,6 @@
       }
     }
 
-    // 2. Fitur Auto-Suggest (menggunakan API publik Google/YouTube Suggestion)
     let debounceTimer;
     searchInput.addEventListener('input', (e) => {
       const keyword = e.target.value.trim();
@@ -232,14 +229,12 @@
       }, 300);
     });
 
-    // Sembunyikan suggestions saat klik di luar
     document.addEventListener('click', (e) => {
       if (!e.target.closest('.search-container')) {
         suggestionsBox.style.display = 'none';
       }
     });
 
-    // 3. Play Video & Related List
     function playVideo(videoId, title) {
       searchView.style.display = 'none';
       watchView.style.display = 'grid';
@@ -248,13 +243,13 @@
 
       document.getElementById('vTitle').innerText = title || "Sedang Memutar...";
       document.getElementById('relatedList').innerHTML = "";
-      document.getElementById('videoPlayer').src = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1`;
+      document.getElementById('videoPlayer').src = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&modestbranding=1&rel=0`;
 
       fetch(`/api/yt?action=related&id=${videoId}`)
         .then(r => r.json())
         .then(data => {
           const relatedContainer = document.getElementById('relatedList');
-          if (data.results) {
+          if (data.results && data.results.length > 0) {
             data.results.forEach(item => {
               if (item.type !== 'video' || !item.id) return;
               const rel = document.createElement('div');
@@ -277,8 +272,12 @@
               `;
               relatedContainer.appendChild(rel);
             });
+          } else {
+            relatedContainer.innerHTML = '<p style="font-size: 12px; color: var(--muted);">Video terkait tidak tersedia.</p>';
           }
-        }).catch(e => console.error("Gagal memuat video terkait:", e));
+        }).catch(e => {
+          console.error("Gagal memuat video terkait:", e);
+        });
     }
 
     searchForm.addEventListener('submit', (e) => {
