@@ -1,112 +1,112 @@
-import crypto from "crypto";
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YT Downloader</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col items-center py-12 px-4">
 
-const seedHex = "C5D58EF67A7584E4A29F6C35BBC4EB12";
-const keyBytes = Buffer.from(seedHex, "hex");
+  <div class="max-w-2xl w-full">
+    <div class="text-center mb-8">
+      <h1 class="text-3xl font-bold text-red-500">YT Downloader</h1>
+      <p class="text-gray-400 mt-2">Unduh Video & MP3 dengan mudah</p>
+    </div>
 
-export default async function handler(req, res) {
-  // CORS setup
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    <div class="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
+      <form id="dlForm" class="flex flex-col sm:flex-row gap-3">
+        <input type="url" id="urlInput" placeholder="Tempel link YouTube disini..." required
+          class="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-red-500">
+        <button type="submit" id="submitBtn"
+          class="bg-red-600 hover:bg-red-700 text-white font-semibold px-6 py-3 rounded-lg transition">
+          Proses
+        </button>
+      </form>
+      <div id="status" class="mt-4 text-sm text-center hidden"></div>
+    </div>
 
-  if (req.method === "OPTIONS") return res.status(200).end();
-  if (req.method !== "POST") return res.status(405).json({ error: "Gunakan method POST" });
+    <!-- Container Hasil -->
+    <div id="result" class="hidden mt-8 bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
+      <div class="flex flex-col sm:flex-row gap-6 border-b border-gray-700 pb-6">
+        <img id="thumb" src="" alt="Thumbnail" class="w-full sm:w-48 rounded-lg object-cover aspect-video bg-gray-900">
+        <div>
+          <h2 id="title" class="text-lg font-bold line-clamp-2"></h2>
+          <p id="duration" class="text-sm text-gray-400 mt-2"></p>
+        </div>
+      </div>
 
-  const { url } = req.body || {};
-  if (!url) return res.status(400).json({ error: "URL YouTube wajib diisi!" });
+      <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Video -->
+        <div>
+          <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Unduh Video</h3>
+          <div id="videoList" class="space-y-2"></div>
+        </div>
+        <!-- Audio -->
+        <div>
+          <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Unduh Audio</h3>
+          <div id="audioList" class="space-y-2"></div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-  try {
-    const cdnRes = await fetch("https://media.savetube.vip/api/random-cdn");
-    const { cdn } = await cdnRes.json();
+  <script>
+    document.getElementById('dlForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const url = document.getElementById('urlInput').value;
+      const status = document.getElementById('status');
+      const resultBox = document.getElementById('result');
+      const btn = document.getElementById('submitBtn');
 
-    const infoRes = await fetch(`https://${cdn}/v2/info`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Origin": "https://yt-mp4.net",
-        "Referer": "https://yt-mp4.net/"
-      },
-      body: JSON.stringify({ url: url })
-    });
-    const infoJson = await infoRes.json();
+      status.className = "mt-4 text-sm text-center text-gray-400 block";
+      status.innerText = "Sedang mengambil data, mohon tunggu...";
+      resultBox.classList.add('hidden');
+      btn.disabled = true;
+      btn.classList.add('opacity-50');
 
-    if (!infoJson.status || !infoJson.data) {
-      throw new Error(infoJson.message || "Gagal mengambil informasi video");
-    }
+      try {
+        const res = await fetch('/api/ytdl', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url })
+        });
+        const data = await res.json();
 
-    const rawBuffer = Buffer.from(infoJson.data, "base64");
-    const iv = rawBuffer.subarray(0, 16);
-    const cipherText = rawBuffer.subarray(16);
+        if (!res.ok) throw new Error(data.error || "Gagal mengambil data");
 
-    const decipher = crypto.createDecipheriv("aes-128-cbc", keyBytes, iv);
-    let decrypted = decipher.update(cipherText, null, "utf8");
-    decrypted += decipher.final("utf8");
+        document.getElementById('thumb').src = data.thumbnail;
+        document.getElementById('title').innerText = data.title;
+        document.getElementById('duration').innerText = "Durasi: " + data.duration;
 
-    const videoData = JSON.parse(decrypted);
+        // Render Video Links
+        const vList = document.getElementById('videoList');
+        vList.innerHTML = data.videos.length ? data.videos.map(v => `
+          <a href="${v.url}" target="_blank" class="flex justify-between items-center bg-gray-700 hover:bg-gray-600 p-3 rounded-lg transition">
+            <span class="text-sm font-medium">${v.quality}</span>
+            <span class="bg-red-600 text-xs px-2 py-1 rounded">MP4</span>
+          </a>
+        `).join('') : '<p class="text-xs text-gray-500">Tidak tersedia</p>';
 
-    async function getDownloadUrl(downloadType, quality, directUrl) {
-      if (directUrl && downloadType === "video") {
-        return directUrl + `&title=${encodeURIComponent(videoData.titleSlug)}-ytmp4.savetube.vip`;
+        // Render Audio Links
+        const aList = document.getElementById('audioList');
+        aList.innerHTML = data.audios.length ? data.audios.map(a => `
+          <a href="${a.url}" target="_blank" class="flex justify-between items-center bg-gray-700 hover:bg-gray-600 p-3 rounded-lg transition">
+            <span class="text-sm font-medium">${a.quality}</span>
+            <span class="bg-green-600 text-xs px-2 py-1 rounded">MP3</span>
+          </a>
+        `).join('') : '<p class="text-xs text-gray-500">Tidak tersedia</p>';
+
+        status.classList.add('hidden');
+        resultBox.classList.remove('hidden');
+      } catch (err) {
+        status.className = "mt-4 text-sm text-center text-red-500 block";
+        status.innerText = err.message;
+      } finally {
+        btn.disabled = false;
+        btn.classList.remove('opacity-50');
       }
-      const res = await fetch(`https://${cdn}/download`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-          "Origin": "https://yt-mp4.net",
-          "Referer": "https://yt-mp4.net/"
-        },
-        body: JSON.stringify({
-          downloadType: downloadType === "audio" || String(quality) === "128" ? "audio" : "video",
-          quality: String(quality),
-          key: videoData.key
-        })
-      });
-      const json = await res.json();
-      return json.data?.downloadUrl || null;
-    }
-
-    const seenVideoQualities = new Set();
-    const videoDownloads = [];
-
-    for (const v of videoData.video_formats || []) {
-      const qKey = v.quality || v.height;
-      if (seenVideoQualities.has(qKey)) continue;
-      seenVideoQualities.add(qKey);
-
-      const downloadUrl = await getDownloadUrl("video", qKey, v.url);
-      videoDownloads.push({
-        quality: `${qKey}p`,
-        resolution: `${v.width || qKey}x${v.height || qKey}`,
-        label: v.label,
-        url: downloadUrl
-      });
-    }
-
-    videoDownloads.sort((a, b) => parseInt(b.quality) - parseInt(a.quality));
-
-    const audioDownloads = [];
-    for (const a of videoData.audio_formats || []) {
-      const downloadUrl = await getDownloadUrl("audio", a.quality, a.url);
-      audioDownloads.push({
-        quality: `${a.quality}kbps`,
-        label: a.label,
-        url: downloadUrl
-      });
-    }
-
-    return res.status(200).json({
-      id: videoData.id,
-      title: videoData.title,
-      duration: videoData.durationLabel,
-      thumbnail: videoData.thumbnail,
-      videos: videoDownloads,
-      audios: audioDownloads
     });
-
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: error.message || "Terjadi kesalahan pada server." });
-  }
-}
+  </script>
+</body>
+</html>
