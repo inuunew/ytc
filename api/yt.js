@@ -1,43 +1,28 @@
 const BASE = "https://m.youtube.com";
 const API = "https://m.youtube.com/youtubei/v1";
-const ANDROID_VR_KEY = "AIzaSyA8eiZmM1FaDVjRy-df2KTyQ_vz_yYM39w";
-const UA = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36";
-let config = null;
+// Menggunakan API Key default yang ringan dan stabil
+const ANDROID_KEY = "AIzaSyA8eiZmM1FaDVjRy-df2KTyQ_vz_yYM39w";
+const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
-async function bootstrap(force = false) {
-  if (config && !force) return config;
-  try {
-    const res = await fetch(`${BASE}/`, { headers: { "User-Agent": UA, "Accept-Language": "id-ID,id;q=0.9" } });
-    const html = await res.text();
-    const keyMatch = html.match(/INNERTUBE_API_KEY":"([^"]+)"/);
-    const verMatch = html.match(/INNERTUBE_CONTEXT_CLIENT_VERSION":"([^"]+)"/);
-    const visMatch = html.match(/visitorData":"([^"]+)"/);
-    config = {
-      key: keyMatch ? keyMatch[1] : ANDROID_VR_KEY,
-      version: verMatch ? verMatch[1] : "2.20231201.00.00",
-      visitorData: visMatch ? visMatch[1] : "",
-      gl: "ID",
-    };
-  } catch (err) {
-    config = { key: ANDROID_VR_KEY, version: "2.20231201.00.00", visitorData: "", gl: "ID" };
+// Client Config statis agar tidak perlu scraping yang membuat lag
+const mwebContext = {
+  client: { 
+    clientName: "WEB", 
+    clientVersion: "2.20231201.00.00", 
+    hl: "id", 
+    gl: "ID" 
   }
-  return config;
-}
+};
 
 async function youtubei(endpoint, payload) {
-  const { key } = await bootstrap();
-  const res = await fetch(`${API}/${endpoint}?key=${key}`, {
+  const res = await fetch(`${API}/${endpoint}?key=${ANDROID_KEY}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "User-Agent": UA, Origin: BASE },
+    headers: { "Content-Type": "application/json", "User-Agent": UA, Origin: "https://www.youtube.com" },
     body: JSON.stringify(payload),
   });
   const json = await res.json();
   if (json.error) throw new Error(json.error.message);
   return json;
-}
-
-function mweb() {
-  return { clientName: "MWEB", clientVersion: config.version, visitorData: config.visitorData, hl: "id", gl: config.gl };
 }
 
 function text(runs) { return (runs || []).map((r) => r.text).join("").trim(); }
@@ -62,7 +47,6 @@ function findAll(obj, key, out = []) {
 }
 
 function parseItem(item) {
-  // Parsing Video Biasa (Pencarian & Halaman Beranda)
   if (item.videoWithContextRenderer || item.videoRenderer) {
     const v = item.videoWithContextRenderer || item.videoRenderer;
     return {
@@ -76,7 +60,6 @@ function parseItem(item) {
       thumbnail: thumbnail(v.thumbnail && v.thumbnail.thumbnails),
     };
   }
-  // Parsing Video Terkait (Sidebar Halaman Tonton)
   if (item.compactVideoRenderer) {
     const v = item.compactVideoRenderer;
     return {
@@ -90,7 +73,6 @@ function parseItem(item) {
       thumbnail: thumbnail(v.thumbnail && v.thumbnail.thumbnails),
     };
   }
-  // Parsing Shorts (Untuk Halaman Shorts)
   if (item.reelItemRenderer) {
     const v = item.reelItemRenderer;
     return {
@@ -104,9 +86,9 @@ function parseItem(item) {
   return null;
 }
 
-function collect(json, key = "itemSectionRenderer") {
+function collect(json, targetKey = "itemSectionRenderer") {
   const items = [];
-  for (const section of findAll(json, key)) {
+  for (const section of findAll(json, targetKey)) {
     for (const item of section.contents || []) {
       const parsed = parseItem(item);
       if (parsed) items.push(parsed);
@@ -115,36 +97,7 @@ function collect(json, key = "itemSectionRenderer") {
   return items;
 }
 
-async function search(query) {
-  const json = await youtubei("search", { context: { client: mweb() }, query });
-  return { results: collect(json) };
-}
-
-async function getShorts() {
-  // Query unik untuk memancing Shorts dari Indonesia
-  const json = await youtubei("search", { context: { client: mweb() }, query: "Shorts indonesia viral terbaru" });
-  // Cari semua format reelItemRenderer dari hasil pencarian rak-rak Shorts
-  const shorts = findAll(json, "reelItemRenderer").map(v => parseItem({ reelItemRenderer: v })).filter(i => i !== null);
-  return { results: shorts };
-}
-
-async function related(videoId) {
-  const json = await youtubei("next", { context: { client: mweb() }, videoId });
-  return { results: collect(json) };
-}
-
-async function infoVideo(videoId) {
-  const json = await youtubei("next", { context: { client: mweb() }, videoId });
-  const vd = json.videoDetails || {};
-  let title = vd.title;
-  if (!title) {
-    const slim = findAll(json, "slimVideoInformationRenderer");
-    if (slim.length > 0) title = text(slim[0].title?.runs);
-  }
-  return { id: videoId, title: title || "Memutar Video..." };
-}
-
-// Handler Vercel Endpoint
+// Handler Vercel
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Content-Type', 'application/json');
@@ -152,11 +105,24 @@ export default async function handler(req, res) {
   const { action, q, id } = req.query;
 
   try {
-    await bootstrap();
-    if (action === "search") return res.status(200).json(await search(q || "Musik Pop Indonesia"));
-    if (action === "shorts") return res.status(200).json(await getShorts());
-    if (action === "info") return res.status(200).json(await infoVideo(id));
-    if (action === "related") return res.status(200).json(await related(id));
+    if (action === "search") {
+      const json = await youtubei("search", { context: mwebContext, query: q || "Musik Pop Indonesia" });
+      return res.status(200).json({ results: collect(json) });
+    }
+    
+    if (action === "shorts") {
+      // Menggunakan hashtag untuk memaksa YT mengeluarkan Shorts
+      const json = await youtubei("search", { context: mwebContext, query: "#shorts viral indonesia" });
+      // Menarik paksa semua reelItemRenderer di manapun lokasinya di dalam JSON
+      const shortsNodes = findAll(json, "reelItemRenderer");
+      const shorts = shortsNodes.map(v => parseItem({ reelItemRenderer: v })).filter(i => i !== null);
+      return res.status(200).json({ results: shorts });
+    }
+    
+    if (action === "related") {
+      const json = await youtubei("next", { context: mwebContext, videoId: id });
+      return res.status(200).json({ results: collect(json) });
+    }
 
     return res.status(400).json({ error: "Action tidak valid" });
   } catch (err) {
