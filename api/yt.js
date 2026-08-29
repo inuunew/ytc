@@ -7,30 +7,19 @@ let config = null;
 async function bootstrap(force = false) {
   if (config && !force) return config;
   try {
-    const res = await fetch(`${BASE}/`, {
-      headers: { "User-Agent": UA, "Accept-Language": "en-US,en;q=0.9" },
-    });
+    const res = await fetch(`${BASE}/`, { headers: { "User-Agent": UA, "Accept-Language": "id-ID,id;q=0.9" } });
     const html = await res.text();
-    
     const keyMatch = html.match(/INNERTUBE_API_KEY":"([^"]+)"/);
     const verMatch = html.match(/INNERTUBE_CONTEXT_CLIENT_VERSION":"([^"]+)"/);
     const visMatch = html.match(/visitorData":"([^"]+)"/);
-    const glMatch = html.match(/"GL":"([^"]+)"/);
-
     config = {
       key: keyMatch ? keyMatch[1] : ANDROID_VR_KEY,
       version: verMatch ? verMatch[1] : "2.20231201.00.00",
       visitorData: visMatch ? visMatch[1] : "",
-      gl: glMatch ? glMatch[1] : "US",
+      gl: "ID",
     };
   } catch (err) {
-    // Fallback default jika scrapping awal gagal
-    config = {
-      key: ANDROID_VR_KEY,
-      version: "2.20231201.00.00",
-      visitorData: "",
-      gl: "US",
-    };
+    config = { key: ANDROID_VR_KEY, version: "2.20231201.00.00", visitorData: "", gl: "ID" };
   }
   return config;
 }
@@ -48,7 +37,7 @@ async function youtubei(endpoint, payload) {
 }
 
 function mweb() {
-  return { clientName: "MWEB", clientVersion: config.version || "2.20231201.00.00", visitorData: config.visitorData, hl: "en", gl: config.gl };
+  return { clientName: "MWEB", clientVersion: config.version, visitorData: config.visitorData, hl: "id", gl: config.gl };
 }
 
 function text(runs) { return (runs || []).map((r) => r.text).join("").trim(); }
@@ -72,104 +61,90 @@ function findAll(obj, key, out = []) {
   return out;
 }
 
-function collectItems(json) {
-  const items = [];
-  for (const section of findAll(json, "itemSectionRenderer")) {
-    for (const item of section.contents || []) {
-      const parsed = parseSearchItem(item);
-      if (!parsed) continue;
-      if (Array.isArray(parsed)) items.push(...parsed);
-      else items.push(parsed);
-    }
-  }
-  return items;
-}
-
-function parseSearchItem(item) {
-  if (item.videoWithContextRenderer) {
-    const v = item.videoWithContextRenderer;
+function parseItem(item) {
+  // Parsing Video Biasa (Pencarian & Halaman Beranda)
+  if (item.videoWithContextRenderer || item.videoRenderer) {
+    const v = item.videoWithContextRenderer || item.videoRenderer;
     return {
       type: "video",
       id: v.videoId,
-      title: text(v.headline && v.headline.runs),
-      channel: text(v.shortBylineText && v.shortBylineText.runs),
-      views: text(v.shortViewCountText && v.shortViewCountText.runs),
+      title: v.headline ? text(v.headline.runs) : (v.title ? (v.title.simpleText || text(v.title.runs)) : ""),
+      channel: text(v.shortBylineText && v.shortBylineText.runs) || text(v.ownerText && v.ownerText.runs),
+      views: v.shortViewCountText ? text(v.shortViewCountText.runs) : (v.viewCountText ? text(v.viewCountText.runs) : ""),
+      publishTime: v.publishedTimeText ? (v.publishedTimeText.simpleText || text(v.publishedTimeText.runs)) : "",
+      duration: v.lengthText ? (v.lengthText.simpleText || text(v.lengthText.runs)) : "",
       thumbnail: thumbnail(v.thumbnail && v.thumbnail.thumbnails),
+    };
+  }
+  // Parsing Video Terkait (Sidebar Halaman Tonton)
+  if (item.compactVideoRenderer) {
+    const v = item.compactVideoRenderer;
+    return {
+      type: "video",
+      id: v.videoId,
+      title: v.title ? (v.title.simpleText || text(v.title.runs)) : "",
+      channel: text(v.shortBylineText && v.shortBylineText.runs) || text(v.longBylineText && v.longBylineText.runs),
+      views: v.viewCountText ? (v.viewCountText.simpleText || text(v.viewCountText.runs)) : "",
+      publishTime: v.publishedTimeText ? (v.publishedTimeText.simpleText || text(v.publishedTimeText.runs)) : "",
+      duration: v.lengthText ? (v.lengthText.simpleText || text(v.lengthText.runs)) : "",
+      thumbnail: thumbnail(v.thumbnail && v.thumbnail.thumbnails),
+    };
+  }
+  // Parsing Shorts (Untuk Halaman Shorts)
+  if (item.reelItemRenderer) {
+    const v = item.reelItemRenderer;
+    return {
+      type: "short",
+      id: v.videoId,
+      title: v.headline ? v.headline.simpleText : "",
+      views: v.viewCountText ? v.viewCountText.simpleText : "",
+      thumbnail: thumbnail(v.thumbnail && v.thumbnail.thumbnails)
     };
   }
   return null;
 }
 
-async function search(query) {
-  const payload = { context: { client: mweb() }, query };
-  let json = await youtubei("search", payload);
-  return { query, results: collectItems(json) };
-}
-
-async function infoVideo(videoId) {
-  // Gunakan endpoint 'next' menggantikan 'player' agar tidak diblokir Vercel
-  const json = await youtubei("next", { 
-    context: { client: mweb() }, 
-    videoId 
-  });
-
-  // Ambil metadata dasar dari response
-  const vd = json.videoDetails || {};
-  
-  // Ambil judul tambahan jika vd.title kosong
-  let title = vd.title;
-  if (!title) {
-    const slimInfo = findAll(json, "slimVideoInformationRenderer");
-    if (slimInfo.length > 0) {
-      title = text(slimInfo[0].title?.runs);
+function collect(json, key = "itemSectionRenderer") {
+  const items = [];
+  for (const section of findAll(json, key)) {
+    for (const item of section.contents || []) {
+      const parsed = parseItem(item);
+      if (parsed) items.push(parsed);
     }
   }
-
-  return {
-    type: "video",
-    id: videoId,
-    title: title || "Judul tidak tersedia",
-    description: vd.shortDescription || "Deskripsi tidak tersedia.",
-    author: vd.author || vd.ownerChannelName || "Channel",
-    viewCount: vd.viewCount || "0",
-    publishDate: "",
-  };
+  return items;
 }
 
+async function search(query) {
+  const json = await youtubei("search", { context: { client: mweb() }, query });
+  return { results: collect(json) };
+}
+
+async function getShorts() {
+  // Query unik untuk memancing Shorts dari Indonesia
+  const json = await youtubei("search", { context: { client: mweb() }, query: "Shorts indonesia viral terbaru" });
+  // Cari semua format reelItemRenderer dari hasil pencarian rak-rak Shorts
+  const shorts = findAll(json, "reelItemRenderer").map(v => parseItem({ reelItemRenderer: v })).filter(i => i !== null);
+  return { results: shorts };
+}
 
 async function related(videoId) {
   const json = await youtubei("next", { context: { client: mweb() }, videoId });
-  return { videoId, results: collectItems(json) };
+  return { results: collect(json) };
 }
 
-async function download(videoId) {
-  const payload = {
-    context: {
-      client: { clientName: "ANDROID_VR", clientVersion: "1.58.24", androidSdkVersion: 30, hl: "en", gl: "US" },
-    },
-    videoId, contentCheckOk: true, racyCheckOk: true,
-  };
-  const res = await fetch(`${API}/player?key=${ANDROID_VR_KEY}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "User-Agent": UA, Origin: BASE },
-    body: JSON.stringify(payload),
-  });
-  const json = await res.json();
-  if (!json.streamingData) throw new Error("Streaming URL tidak tersedia.");
-  
-  const formats = [ ...(json.streamingData.formats || []), ...(json.streamingData.adaptiveFormats || []) ]
-    .filter((f) => f.url)
-    .map((f) => ({
-      itag: f.itag,
-      label: f.qualityLabel || f.audioQuality || "Format Direct",
-      mimeType: f.mimeType,
-      url: f.url,
-    }));
-
-  return { id: videoId, formats };
+async function infoVideo(videoId) {
+  const json = await youtubei("next", { context: { client: mweb() }, videoId });
+  const vd = json.videoDetails || {};
+  let title = vd.title;
+  if (!title) {
+    const slim = findAll(json, "slimVideoInformationRenderer");
+    if (slim.length > 0) title = text(slim[0].title?.runs);
+  }
+  return { id: videoId, title: title || "Memutar Video..." };
 }
 
-// Handler Vercel
+// Handler Vercel Endpoint
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Content-Type', 'application/json');
@@ -178,10 +153,10 @@ export default async function handler(req, res) {
 
   try {
     await bootstrap();
-    if (action === "search") return res.status(200).json(await search(q || "Musik Indonesia"));
+    if (action === "search") return res.status(200).json(await search(q || "Musik Pop Indonesia"));
+    if (action === "shorts") return res.status(200).json(await getShorts());
     if (action === "info") return res.status(200).json(await infoVideo(id));
     if (action === "related") return res.status(200).json(await related(id));
-    if (action === "download") return res.status(200).json(await download(id));
 
     return res.status(400).json({ error: "Action tidak valid" });
   } catch (err) {
